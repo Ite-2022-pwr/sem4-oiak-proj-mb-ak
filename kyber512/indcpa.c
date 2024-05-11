@@ -17,7 +17,7 @@
 *              const poly *pk:            pointer to the input public-key polynomial
 *              const unsigned char *seed: pointer to the input public seed
 **************************************************/
-static void pack_pk(unsigned char *r, const polyvec *pk, const unsigned char *seed)
+void pack_pk(unsigned char *r, const polyvec *pk, const unsigned char *seed)
 {
   int i;
   polyvec_compress(r, pk);
@@ -35,7 +35,7 @@ static void pack_pk(unsigned char *r, const polyvec *pk, const unsigned char *se
 *              - unsigned char *seed:           pointer to output seed to generate matrix A
 *              - const unsigned char *packedpk: pointer to input serialized public key
 **************************************************/
-static void unpack_pk(polyvec *pk, unsigned char *seed, const unsigned char *packedpk)
+void unpack_pk(polyvec *pk, unsigned char *seed, const unsigned char *packedpk)
 {
   int i;
   polyvec_decompress(pk, packedpk);
@@ -55,7 +55,7 @@ static void unpack_pk(polyvec *pk, unsigned char *seed, const unsigned char *pac
 *              const poly *pk:            pointer to the input vector of polynomials b
 *              const unsigned char *seed: pointer to the input polynomial v
 **************************************************/
-static void pack_ciphertext(unsigned char *r, const polyvec *b, const poly *v)
+void pack_ciphertext(unsigned char *r, const polyvec *b, const poly *v)
 {
   polyvec_compress(r, b);
   poly_compress(r+KYBER_POLYVECCOMPRESSEDBYTES, v);
@@ -71,7 +71,7 @@ static void pack_ciphertext(unsigned char *r, const polyvec *b, const poly *v)
 *              - poly *v:                pointer to the output polynomial v
 *              - const unsigned char *c: pointer to the input serialized ciphertext
 **************************************************/
-static void unpack_ciphertext(polyvec *b, poly *v, const unsigned char *c)
+void unpack_ciphertext(polyvec *b, poly *v, const unsigned char *c)
 {
   polyvec_decompress(b, c);
   poly_decompress(v, c+KYBER_POLYVECCOMPRESSEDBYTES);
@@ -85,7 +85,7 @@ static void unpack_ciphertext(polyvec *b, poly *v, const unsigned char *c)
 * Arguments:   - unsigned char *r:  pointer to output serialized secret key
 *              - const polyvec *sk: pointer to input vector of polynomials (secret key)
 **************************************************/
-static void pack_sk(unsigned char *r, const polyvec *sk)
+void pack_sk(unsigned char *r, const polyvec *sk)
 {
   polyvec_tobytes(r, sk);
 }
@@ -99,7 +99,7 @@ static void pack_sk(unsigned char *r, const polyvec *sk)
 * Arguments:   - polyvec *sk:                   pointer to output vector of polynomials (secret key)
 *              - const unsigned char *packedsk: pointer to input serialized secret key
 **************************************************/
-static void unpack_sk(polyvec *sk, const unsigned char *packedsk)
+void unpack_sk(polyvec *sk, const unsigned char *packedsk)
 {
   polyvec_frombytes(sk, packedsk);
 }
@@ -229,7 +229,7 @@ void indcpa_keypair(unsigned char *pk,
 *              - const unsigned char *coin: pointer to input random coins used as seed
 *                                           to deterministically generate all randomness
 **************************************************/
-void indcpa_enc(unsigned char *c,
+void indcpa_enc2(unsigned char *c,
                const unsigned char *m,
                const unsigned char *pk,
                const unsigned char *coins)
