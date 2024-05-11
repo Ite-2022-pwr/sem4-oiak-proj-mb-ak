@@ -4,25 +4,234 @@ section .note.GNU-stack
 section .text
 
 global indcpa_enc
+global pack_pk
+global unpack_pk
+global pack_ciphertext
+global unpack_ciphertext
+global pack_sk
+global unpack_sk
 
 %define KYBER_K 2
 %define KYBER_N 256
 %define KYBER_SYMBYTES 32
 %define KYBER_POLYVECCOMPRESSEDBYTES (KYBER_K * 352) 
 
-extern unpack_pk
 extern poly_frommsg
-extern polyvec_ntt
-extern gen_matrix
 extern poly_getnoise
+extern poly_invntt
+extern poly_add
+extern poly_compress
+extern poly_decompress
+
+extern polyvec_tobytes
+extern polyvec_frombytes
+extern polyvec_ntt
 extern polyvec_pointwise_acc
 extern polyvec_invntt
 extern polyvec_add
-extern polyvec_pointwise_acc
-extern poly_invntt
-extern poly_add
-extern pack_ciphertext
+extern polyvec_compress
+extern polyvec_decompress
 
+extern gen_matrix
+
+; /*************************************************
+; * Name:        pack_pk
+; * 
+; * Description: Serialize the public key as concatenation of the
+; *              compressed and serialized vector of polynomials pk 
+; *              and the public seed used to generate the matrix A.
+; *
+; * Arguments:   unsigned char *r:          pointer to the output serialized public key
+; *              const poly *pk:            pointer to the input public-key polynomial
+; *              const unsigned char *seed: pointer to the input public seed
+; **************************************************/
+pack_pk:
+	push rbp
+	mov	rbp, rsp
+	sub	rsp, 48
+	mov	qword [rbp-24], rdi     ; unisgned char *r
+	mov	qword [rbp-32], rsi     ; const poly *pk
+	mov	qword [rbp-40], rdx     ; const unsigned char *seed
+
+	call	polyvec_compress
+
+	mov	dword [rbp-4], 0    ; i = 0
+
+.pack_pk_loop:
+	cmp	dword [rbp-4], KYBER_SYMBYTES
+	jge	.pack_pk_loop_end
+
+	mov	eax, dword [rbp-4]
+	movsx	rdx, eax                                ; i
+	mov	rax, qword [rbp-40]                       ; seed
+	add	rax, rdx                                  ; seed + i
+	mov	edx, dword [rbp-4]                        ; i
+	movsx	rdx, edx
+	lea	rcx, [rdx+KYBER_POLYVECCOMPRESSEDBYTES]   ; i + KYBER_POLYVECCOMPRESSEDBYTES
+	mov	rdx, qword [rbp-24]                       ; r
+	add	rdx, rcx                                  ; r + i + KYBER_POLYVECCOMPRESSEDBYTES
+	movzx	eax, byte [rax]                         ; seed[i]
+	mov	byte [rdx], al                            ; r[i+KYBER_POLYVECCOMPRESSEDBYTES] = seed[i]
+
+	add	dword [rbp-4], 1            ; i++
+  jmp .pack_pk_loop
+
+.pack_pk_loop_end:
+	leave
+	ret
+
+; /*************************************************
+; * Name:        unpack_pk
+; * 
+; * Description: De-serialize and decompress public key from a byte array;
+; *              approximate inverse of pack_pk
+; *
+; * Arguments:   - polyvec *pk:                   pointer to output public-key vector of polynomials
+; *              - unsigned char *seed:           pointer to output seed to generate matrix A
+; *              - const unsigned char *packedpk: pointer to input serialized public key
+; **************************************************/
+unpack_pk:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 48
+	mov	qword [rbp-24], rdi                     ; polyvec *pk
+	mov	qword [rbp-32], rsi                     ; unsigned char *seed
+	mov	qword [rbp-40], rdx                     ; const unsigned char *packedpk
+
+	mov	rsi, qword [rbp-40]
+	call	polyvec_decompress
+
+	mov	dword [rbp-4], 0                        ; i = 0
+
+.unpack_pk_loop:
+	cmp	dword [rbp-4], KYBER_SYMBYTES
+	jge	.unpack_pk_loop_end
+
+	mov	eax, dword [rbp-4]                      ; i
+	cdqe
+	lea	rdx, [rax+KYBER_POLYVECCOMPRESSEDBYTES] ; i + KYBER_POLYVECCOMPRESSEDBYTES
+	mov	rax, qword [rbp-40]                     ; packedpk
+	add	rax, rdx                                ; packedpk + i + KYBER_POLYVECCOMPRESSEDBYTES
+	mov	edx, dword [rbp-4]
+	movsx	rcx, edx                              ; i
+	mov	rdx, qword [rbp-32]                     ; seed
+	add	rdx, rcx                                ; seed + i
+	movzx	eax, byte [rax]                       ; packedpk[i+KYBER_POLYVECCOMPRESSEDBYTES]
+	mov	byte [rdx], al                          ; seed[i] = packedpk[i+KYBER_POLYVECCOMPRESSEDBYTES]
+
+	add	dword [rbp-4], 1                        ; i++
+  jmp .unpack_pk_loop
+
+.unpack_pk_loop_end:
+	leave
+	ret
+
+
+; /*************************************************
+; * Name:        pack_ciphertext
+; * 
+; * Description: Serialize the ciphertext as concatenation of the
+; *              compressed and serialized vector of polynomials b
+; *              and the compressed and serialized polynomial v
+; *
+; * Arguments:   unsigned char *r:          pointer to the output serialized ciphertext
+; *              const polyvec *b:          pointer to the input vector of polynomials b
+; *              const poly *v:             pointer to the input polynomial v
+; **************************************************/
+pack_ciphertext:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 32
+	mov	qword [rbp-8], rdi                        ; unsigned char *r
+	mov	qword [rbp-16], rsi                       ; const polyvec *b
+	mov	qword [rbp-24], rdx                       ; const poly *v
+
+	call	polyvec_compress
+
+	mov	rax, qword [rbp-8]                        ; r
+	lea	rdi, [rax+KYBER_POLYVECCOMPRESSEDBYTES]   ; r + KYBER_POLYVECCOMPRESSEDBYTES
+	mov	rsi, qword[rbp-24]                        ; v
+	call	poly_compress
+	
+	leave
+	ret
+
+; /*************************************************
+; * Name:        unpack_ciphertext
+; * 
+; * Description: De-serialize and decompress ciphertext from a byte array;
+; *              approximate inverse of pack_ciphertext
+; *
+; * Arguments:   - polyvec *b:             pointer to the output vector of polynomials b
+; *              - poly *v:                pointer to the output polynomial v
+; *              - const unsigned char *c: pointer to the input serialized ciphertext
+; **************************************************/
+unpack_ciphertext:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 32
+	mov	qword [rbp-8], rdi                          ; polyvec *b
+	mov	qword [rbp-16], rsi                         ; poly *v
+	mov	qword [rbp-24], rdx                         ; const unsigned char *c
+
+	mov	rsi, qword [rbp-24]
+	call	polyvec_decompress
+
+	mov	rax, qword [rbp-24]                         ; c
+	lea	rsi, [rax+KYBER_POLYVECCOMPRESSEDBYTES]     ; c + KYBER_POLYVECCOMPRESSEDBYTES
+	mov	rdi, qword [rbp-16]                         ; v
+	call	poly_decompress
+
+	leave
+	ret
+
+; /*************************************************
+; * Name:        pack_sk
+; * 
+; * Description: Serialize the secret key
+; *
+; * Arguments:   - unsigned char *r:  pointer to output serialized secret key
+; *              - const polyvec *sk: pointer to input vector of polynomials (secret key)
+; **************************************************/
+pack_sk:
+	push	rbp
+	mov	rbp, rsp
+
+	call	polyvec_tobytes
+
+	leave
+	ret
+
+; /*************************************************
+; * Name:        unpack_sk
+; * 
+; * Description: De-serialize the secret key;
+; *              inverse of pack_sk
+; *
+; * Arguments:   - polyvec *sk:                   pointer to output vector of polynomials (secret key)
+; *              - const unsigned char *packedsk: pointer to input serialized secret key
+; **************************************************/
+unpack_sk:
+	push	rbp
+	mov	rbp, rsp
+
+	call	polyvec_frombytes
+
+	leave
+	ret
+
+; /*************************************************
+; * Name:        indcpa_enc
+; * 
+; * Description: Encryption function of the CPA-secure 
+; *              public-key encryption scheme underlying Kyber.
+; *
+; * Arguments:   - unsigned char *c:          pointer to output ciphertext
+; *              - const unsigned char *m:    pointer to input message (of length KYBER_SYMBYTES bytes)
+; *              - const unsigned char *pk:   pointer to input public key
+; *              - const unsigned char *coin: pointer to input random coins used as seed
+; *                                           to deterministically generate all randomness
+; **************************************************/
 indcpa_enc:
 	push	rbp
 	mov	rbp, rsp
@@ -78,7 +287,6 @@ indcpa_enc:
 	call	polyvec_ntt
 
 	mov	dword [rbp-4], 0              ; i = 0
-	; jmp	.poly_getnoise_ep_loop_end
 
 .poly_getnoise_ep_loop:
 	cmp	dword [rbp-4], KYBER_K
