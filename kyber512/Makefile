@@ -17,4 +17,5 @@ indcpa.o: indcpa.asm
 
 clean:
 	-rm PQCgenKAT_kem
+	-rm *.o
 
