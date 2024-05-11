@@ -142,33 +142,6 @@ void poly_getnoise(poly *r,const unsigned char *seed, unsigned char nonce)
   cbd(r, buf);
 }
 
-/*************************************************
-* Name:        poly_ntt
-* 
-* Description: Computes negacyclic number-theoretic transform (NTT) of
-*              a polynomial in place; 
-*              inputs assumed to be in normal order, output in bitreversed order
-*
-* Arguments:   - uint16_t *r: pointer to in/output polynomial
-**************************************************/
-void poly_ntt(poly *r)
-{
-  ntt(r->coeffs);
-}
-
-/*************************************************
-* Name:        poly_invntt
-* 
-* Description: Computes inverse of negacyclic number-theoretic transform (NTT) of
-*              a polynomial in place; 
-*              inputs assumed to be in bitreversed order, output in normal order
-*
-* Arguments:   - uint16_t *a: pointer to in/output polynomial
-**************************************************/
-void poly_invntt(poly *r)
-{
-  invntt(r->coeffs);
-}
  
 /*************************************************
 * Name:        poly_add
@@ -179,12 +152,12 @@ void poly_invntt(poly *r)
 *            - const poly *a: pointer to first input polynomial
 *            - const poly *b: pointer to second input polynomial
 **************************************************/ 
-void poly_add(poly *r, const poly *a, const poly *b)
-{
-  int i;
-  for(i=0;i<KYBER_N;i++)
-    r->coeffs[i] = barrett_reduce(a->coeffs[i] + b->coeffs[i]);
-}
+void poly_add(poly *r, const poly *a, const poly *b);
+// {
+//   int i;
+//   for(i=0;i<KYBER_N;i++)
+//     r->coeffs[i] = barrett_reduce(a->coeffs[i] + b->coeffs[i]);
+// }
 
 /*************************************************
 * Name:        poly_sub
@@ -195,12 +168,12 @@ void poly_add(poly *r, const poly *a, const poly *b)
 *            - const poly *a: pointer to first input polynomial
 *            - const poly *b: pointer to second input polynomial
 **************************************************/ 
-void poly_sub(poly *r, const poly *a, const poly *b)
-{
-  int i;
-  for(i=0;i<KYBER_N;i++)
-    r->coeffs[i] = barrett_reduce(a->coeffs[i] + 3*KYBER_Q - b->coeffs[i]);
-}
+void poly_sub(poly *r, const poly *a, const poly *b);
+// {
+//   int i;
+//   for(i=0;i<KYBER_N;i++)
+//     r->coeffs[i] = barrett_reduce(a->coeffs[i] + 3*KYBER_Q - b->coeffs[i]);
+// }
 
 /*************************************************
 * Name:        poly_frommsg
