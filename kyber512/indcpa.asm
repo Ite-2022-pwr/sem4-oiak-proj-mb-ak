@@ -5,6 +5,7 @@ section .text
 
 global indcpa_enc
 global indcpa_dec
+global indcpa_keypair
 global pack_pk
 global unpack_pk
 global pack_ciphertext
@@ -37,6 +38,9 @@ extern polyvec_compress
 extern polyvec_decompress
 
 extern gen_matrix
+
+extern randombytes
+extern sha3_512
 
 ; /*************************************************
 ; * Name:        pack_pk
@@ -390,6 +394,159 @@ indcpa_enc:
 
 
 ; /*************************************************
+; * Name:        indcpa_keypair
+; * 
+; * Description: Generates public and private key for the CPA-secure 
+; *              public-key encryption scheme underlying Kyber
+; *
+; * Arguments:   - unsigned char *pk: pointer to output public key
+; *              - unsigned char *sk: pointer to output private key
+; **************************************************/
+indcpa_keypair:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 4096
+	or	qword  [rsp], 0
+	sub	rsp, 1152
+	mov	qword  [rbp-5240], rdi
+	mov	qword  [rbp-5248], rsi
+	mov	qword  [rbp-8], rax
+	xor	eax, eax
+	lea	rax, [rbp-80]
+	mov	qword  [rbp-5216], rax
+	lea	rax, [rbp-80]
+	add	rax, 32
+	mov	qword  [rbp-5208], rax
+	mov	byte  [rbp-5221], 0
+	lea	rax, [rbp-80]
+	mov	esi, 32 ; KYBER_SYMBYTES
+	mov	rdi, rax ; buf
+
+	call	randombytes
+
+	lea	rcx, [rbp-80]
+	lea	rax, [rbp-80]
+	mov	edx, 32 ; KYBER_SYMBYTES
+	mov	rsi, rcx ; buf
+	mov	rdi, rax ; buf
+
+	call	sha3_512
+
+	mov	rcx, qword  [rbp-5216] ; public seed
+	lea	rax, [rbp-2128] ; a
+	mov	edx, 0
+	mov	rsi, rcx
+	mov	rdi, rax
+
+	call	gen_matrix
+
+	mov	dword  [rbp-5220], 0 ; i = 0
+.first_loop_start:
+	cmp	dword  [rbp-5220], 2 ; i < KYBER_K
+	jge	.first_loop_end
+	movzx	eax, byte  [rbp-5221]
+	lea	edx, 1[rax]
+	mov	byte  [rbp-5221], dl
+	movzx	edx, al
+	mov	eax, dword  [rbp-5220]
+	cdqe
+	sal	rax, 9
+	mov	rcx, rax
+	lea	rax, [rbp-3152]
+	add	rcx, rax
+	mov	rax, qword  [rbp-5208]
+	mov	rsi, rax
+	mov	rdi, rcx
+	call	poly_getnoise
+	inc	dword  [rbp-5220] ; i++
+	jmp	.first_loop_start
+.first_loop_end:
+
+	lea	rax, [rbp-3152] ; &skpv polyvec
+	mov	rdi, rax
+
+	call	polyvec_ntt
+
+	mov	dword  [rbp-5220], 0 ; i = 0
+	
+.second_loop_start:
+	cmp	dword  [rbp-5220], 2 ; i < KYBER_K
+	jge	.second_loop_end
+	movzx	eax, byte  [rbp-5221] 
+	lea	edx, 1[rax]
+	mov	byte  [rbp-5221], dl
+	movzx	edx, al
+	mov	eax, dword  [rbp-5220]
+	cdqe
+	sal	rax, 9
+	mov	rcx, rax
+	lea	rax, [rbp-5200]
+	add	rcx, rax
+	mov	rax, qword  [rbp-5208]
+	mov	rsi, rax
+	mov	rdi, rcx
+	call	poly_getnoise
+	inc	dword  [rbp-5220] ; i++
+	jmp	.second_loop_start
+.second_loop_end:
+
+	; matrix-vector multiplication
+	mov	dword  [rbp-5220], 0 ; i = 0
+.matrix_vector_multiplication_loop_start:
+	cmp	dword  [rbp-5220], 2 ; i < KYBER_K
+	jge	.matrix_vector_multiplication_loop_end
+	mov	eax, dword  [rbp-5220] ; i
+	cdqe
+	sal	rax, 10 ; i << 10 = i * 1024 = i * sizeof(polyvec)
+	mov	rdx, rax 
+	lea	rax, [rbp-2128] 
+	add	rdx, rax ; a + i
+	lea	rax, [rbp-4176] ; &pkpv.vec
+	mov	ecx, dword  [rbp-5220] ; i
+	movsx	rcx, ecx ; i
+	sal	rcx, 9 ; i << 9 = i * sizeof(poly)
+	add	rcx, rax ; &pkpv.vec[i]
+	lea	rax, [rbp-3152]	; &skpv
+	mov	rsi, rax ; &skpv
+	mov	rdi, rcx ; &pkpv.vec[i]
+	call	polyvec_pointwise_acc
+	inc	dword  [rbp-5220] ; i++
+	jmp	.matrix_vector_multiplication_loop_start
+.matrix_vector_multiplication_loop_end:
+	
+	lea	rax, [rbp-4176] ; &pkpv
+	mov	rdi, rax
+
+	call	polyvec_invntt
+
+	lea	rdx, [rbp-5200] ; &e
+	lea	rcx, [rbp-4176]	; &pkpv
+	lea	rax, [rbp-4176]	; &pkpv
+	mov	rsi, rcx
+	mov	rdi, rax
+
+	call	polyvec_add
+
+	lea	rdx, [rbp-3152] ; &skpv
+	mov	rax, qword  [rbp-5248] ; sk
+	mov	rsi, rdx ; &skpv
+	mov	rdi, rax ; sk
+
+	call	pack_sk
+
+	mov	rdx, qword  [rbp-5216] ; public seed
+	lea	rcx, [rbp-4176] ; &pkpv
+	mov	rax, qword  [rbp-5240] ; pk
+	mov	rsi, rcx
+	mov	rdi, rax
+
+	call	pack_pk
+
+	leave
+	ret
+
+
+; /*************************************************
 ; * Name:        indcpa_dec
 ; * 
 ; * Description: Decryption function of the CPA-secure 
@@ -403,54 +560,55 @@ indcpa_dec:
 	push	rbp
 	mov	rbp, rsp
 	sub	rsp, 3120
-	mov	qword  [rbp-3096], rdi
-	mov	qword  [rbp-3104], rsi
-	mov	qword  [rbp-3112], rdx
+	mov	qword  [rbp-3096], rdi ; unsigned char *m
+	mov	qword  [rbp-3104], rsi ; const unsigned char *c
+	mov	qword  [rbp-3112], rdx ; const unsigned char *sk
 	
-	mov	qword  [rbp-8], rax
+	mov	qword  [rbp-8], rax 
 	xor	eax, eax
-	mov	rdx, qword  [rbp-3104]
-	lea	rcx, [rbp-3088]
-	lea	rax, [rbp-2064]
+	mov	rdx, qword  [rbp-3104] ; c
+	lea	rcx, [rbp-3088]	; &v poly
+	lea	rax, [rbp-2064]	; &bp polyvec
 	mov	rsi, rcx
 	mov	rdi, rax
-	
+
 	call	unpack_ciphertext
 
 	mov	rdx, qword  [rbp-3112]
 	lea	rax, [rbp-1040]
-	mov	rsi, rdx
-	mov	rdi, rax
+	mov	rsi, rdx ; sk
+	mov	rdi, rax ; &skpv polyvec
 
 	call	unpack_sk
 
-	lea	rax, [rbp-2064]
+	lea	rax, [rbp-2064] ; &bp
 	mov	rdi, rax
 
 	call	polyvec_ntt
 
-	lea	rdx, [rbp-2064]
-	lea	rcx, [rbp-1040]
-	lea	rax, [rbp-2576]
+	lea	rdx, [rbp-2064] ; &bp
+	lea	rcx, [rbp-1040] ; &skpv
+	lea	rax, [rbp-2576] ; &mp
 	mov	rsi, rcx
 	mov	rdi, rax
 
 	call	polyvec_pointwise_acc
 
-	lea	rax, [rbp-2576]
+	lea	rax, [rbp-2576] ; &mp
 	mov	rdi, rax
 
 	call	poly_invntt
-	lea	rdx, [rbp-3088]
-	lea	rcx, [rbp-2576]
-	lea	rax, [rbp-2576]
+
+	lea	rdx, [rbp-3088] ; &v
+	lea	rcx, [rbp-2576]	; &mp
+	lea	rax, [rbp-2576]	; &mp
 	mov	rsi, rcx
 	mov	rdi, rax
 
 	call	poly_sub
 
-	lea	rdx, [rbp-2576]
-	mov	rax, qword  [rbp-3096]
+	lea	rdx, [rbp-2576] ; &mp
+	mov	rax, qword  [rbp-3096] ; m
 	mov	rsi, rdx
 	mov	rdi, rax
 	call	poly_tomsg

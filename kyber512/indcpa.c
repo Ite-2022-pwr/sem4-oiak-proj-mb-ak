@@ -89,39 +89,39 @@ void gen_matrix(polyvec *a, const unsigned char *seed, int transposed) // Not st
 * Arguments:   - unsigned char *pk: pointer to output public key
 *              - unsigned char *sk: pointer to output private key
 **************************************************/
-void indcpa_keypair(unsigned char *pk, 
-                   unsigned char *sk)
-{
-  polyvec a[KYBER_K], e, pkpv, skpv;
-  unsigned char buf[KYBER_SYMBYTES+KYBER_SYMBYTES];
-  unsigned char *publicseed = buf;
-  unsigned char *noiseseed = buf+KYBER_SYMBYTES;
-  int i;
-  unsigned char nonce=0;
+// void indcpa_keypair(unsigned char *pk, 
+//                    unsigned char *sk)
+// {
+//   polyvec a[KYBER_K], e, pkpv, skpv;
+//   unsigned char buf[KYBER_SYMBYTES+KYBER_SYMBYTES];
+//   unsigned char *publicseed = buf;
+//   unsigned char *noiseseed = buf+KYBER_SYMBYTES;
+//   int i;
+//   unsigned char nonce=0;
 
-  randombytes(buf, KYBER_SYMBYTES);
-  sha3_512(buf, buf, KYBER_SYMBYTES);
+//   randombytes(buf, KYBER_SYMBYTES);
+//   sha3_512(buf, buf, KYBER_SYMBYTES);
 
-  gen_a(a, publicseed);
+//   gen_a(a, publicseed);
 
-  for(i=0;i<KYBER_K;i++)
-    poly_getnoise(skpv.vec+i,noiseseed,nonce++);
+//   for(i=0;i<KYBER_K;i++)
+//     poly_getnoise(skpv.vec+i,noiseseed,nonce++);
 
-  polyvec_ntt(&skpv);
+//   polyvec_ntt(&skpv);
   
-  for(i=0;i<KYBER_K;i++)
-    poly_getnoise(e.vec+i,noiseseed,nonce++);
+//   for(i=0;i<KYBER_K;i++)
+//     poly_getnoise(e.vec+i,noiseseed,nonce++);
 
-  // matrix-vector multiplication
-  for(i=0;i<KYBER_K;i++)
-    polyvec_pointwise_acc(&pkpv.vec[i],&skpv,a+i);
+//   // matrix-vector multiplication
+//   for(i=0;i<KYBER_K;i++)
+//     polyvec_pointwise_acc(&pkpv.vec[i],&skpv,a+i);
 
-  polyvec_invntt(&pkpv);
-  polyvec_add(&pkpv,&pkpv,&e);
+//   polyvec_invntt(&pkpv);
+//   polyvec_add(&pkpv,&pkpv,&e);
 
-  pack_sk(sk, &skpv);
-  pack_pk(pk, &pkpv, publicseed);
-}
+//   pack_sk(sk, &skpv);
+//   pack_pk(pk, &pkpv, publicseed);
+// }
 
 /*************************************************
 * Name:        indcpa_dec
