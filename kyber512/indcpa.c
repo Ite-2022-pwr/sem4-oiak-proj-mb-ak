@@ -133,22 +133,22 @@ void indcpa_keypair(unsigned char *pk,
 *              - const unsigned char *c:  pointer to input ciphertext
 *              - const unsigned char *sk: pointer to input secret key
 **************************************************/
-void indcpa_dec(unsigned char *m,
-               const unsigned char *c,
-               const unsigned char *sk)
-{
-  polyvec bp, skpv;
-  poly v, mp;
+// void indcpa_dec(unsigned char *m,
+//                const unsigned char *c,
+//                const unsigned char *sk)
+// {
+//   polyvec bp, skpv;
+//   poly v, mp;
 
-  unpack_ciphertext(&bp, &v, c);
-  unpack_sk(&skpv, sk);
+//   unpack_ciphertext(&bp, &v, c);
+//   unpack_sk(&skpv, sk);
 
-  polyvec_ntt(&bp);
+//   polyvec_ntt(&bp);
 
-  polyvec_pointwise_acc(&mp,&skpv,&bp);
-  poly_invntt(&mp);
+//   polyvec_pointwise_acc(&mp,&skpv,&bp);
+//   poly_invntt(&mp);
 
-  poly_sub(&mp, &mp, &v);
+//   poly_sub(&mp, &mp, &v);
 
-  poly_tomsg(m, &mp);
-}
+//   poly_tomsg(m, &mp);
+// }

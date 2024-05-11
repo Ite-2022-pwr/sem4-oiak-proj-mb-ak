@@ -4,6 +4,7 @@ section .note.GNU-stack
 section .text
 
 global indcpa_enc
+global indcpa_dec
 global pack_pk
 global unpack_pk
 global pack_ciphertext
@@ -22,6 +23,9 @@ extern poly_invntt
 extern poly_add
 extern poly_compress
 extern poly_decompress
+extern poly_tomsg
+extern poly_sub
+
 
 extern polyvec_tobytes
 extern polyvec_frombytes
@@ -384,3 +388,72 @@ indcpa_enc:
 	leave
 	ret
 
+
+; /*************************************************
+; * Name:        indcpa_dec
+; * 
+; * Description: Decryption function of the CPA-secure 
+; *              public-key encryption scheme underlying Kyber.
+; *
+; * Arguments:   - unsigned char *m:        pointer to output decrypted message
+; *              - const unsigned char *c:  pointer to input ciphertext
+; *              - const unsigned char *sk: pointer to input secret key
+; **************************************************/
+indcpa_dec:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 3120
+	mov	qword  [rbp-3096], rdi
+	mov	qword  [rbp-3104], rsi
+	mov	qword  [rbp-3112], rdx
+	
+	mov	qword  [rbp-8], rax
+	xor	eax, eax
+	mov	rdx, qword  [rbp-3104]
+	lea	rcx, [rbp-3088]
+	lea	rax, [rbp-2064]
+	mov	rsi, rcx
+	mov	rdi, rax
+	
+	call	unpack_ciphertext
+
+	mov	rdx, qword  [rbp-3112]
+	lea	rax, [rbp-1040]
+	mov	rsi, rdx
+	mov	rdi, rax
+
+	call	unpack_sk
+
+	lea	rax, [rbp-2064]
+	mov	rdi, rax
+
+	call	polyvec_ntt
+
+	lea	rdx, [rbp-2064]
+	lea	rcx, [rbp-1040]
+	lea	rax, [rbp-2576]
+	mov	rsi, rcx
+	mov	rdi, rax
+
+	call	polyvec_pointwise_acc
+
+	lea	rax, [rbp-2576]
+	mov	rdi, rax
+
+	call	poly_invntt
+	lea	rdx, [rbp-3088]
+	lea	rcx, [rbp-2576]
+	lea	rax, [rbp-2576]
+	mov	rsi, rcx
+	mov	rdi, rax
+
+	call	poly_sub
+
+	lea	rdx, [rbp-2576]
+	mov	rax, qword  [rbp-3096]
+	mov	rsi, rdx
+	mov	rdi, rax
+	call	poly_tomsg
+
+	leave
+	ret
