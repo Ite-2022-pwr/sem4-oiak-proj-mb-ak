@@ -12,10 +12,13 @@ global poly_ntt
 global poly_invntt
 global poly_add
 global poly_sub
+global poly_frommsg
+global poly_tomsg
 
 extern ntt
 extern invntt
 extern barrett_reduce
+extern freeze
 
 ; /*************************************************
 ; * Name:        poly_ntt
@@ -153,3 +156,161 @@ poly_sub:
 .poly_add_loop_end:
 	leave
 	ret
+
+; /*************************************************
+; * Name:        poly_frommsg
+; * 
+; * Description: Convert 32-byte message to polynomial
+; *
+; * Arguments:   - poly *r:                  pointer to output polynomial
+; *              - const unsigned char *msg: pointer to input message
+; **************************************************/
+poly_frommsg:
+	push	rbp
+	mov	rbp, rsp
+	mov	qword [rbp-24], rdi                       ; poly *r
+	mov	qword [rbp-32], rsi                       ; const unsigned char *msg
+
+	mov	word [rbp-2], 0                           ; i = 0
+
+.poly_frommsg_loop_outer:
+	cmp	word [rbp-2], KYBER_SYMBYTES
+	jge	.poly_frommsg_loop_outer_end
+	mov	word [rbp-4], 0                           ; j = 0
+
+.poly_frommsg_loop_inner:
+	cmp	word [rbp-4], 8                           ; j < 8
+	jge	.poly_frommsg_loop_inner_end
+
+	movzx	edx, word [rbp-2]                       ; i
+	mov	rax, qword [rbp-32]                       ; msg
+	add	rax, rdx                                  ; msg + i
+	movzx	eax, byte [rax]                         ; msg[i]
+	movzx	edx, al
+	movzx	eax, word [rbp-4]                       ; j
+	mov	ecx, eax
+	sar	edx, cl                                   ; msg[i] >> j
+	mov	eax, edx
+	and	eax, 1                                    ; (msg[i] >> j) & 1
+	neg	eax                                       ; -((msg[i] >> j) & 1)
+	mov	word [rbp-6], ax                          ; uint16_t mask = -((msg[i] >> j) & 1)
+
+	movzx	eax, word [rbp-2]                       ; i
+	lea	edx, [0+rax*8]                            ; i * 8
+	movzx	eax, word [rbp-4]                       ; j
+	add	edx, eax                                  ; i * 8 + j
+	movsx	rdx, edx
+  
+  mov rbx, KYBER_Q
+  inc ebx
+  sar ebx, 1                                    ; (KYBER_Q + 1) / 2
+
+	movzx	eax, word [rbp-6]                       ; mask
+	and	ax, bx                                    ; mask & ((KYBER_Q + 1) / 2)
+
+	mov	ecx, eax
+	mov	rax, qword [rbp-24]                       ; r
+	mov	word [rax+rdx*2], cx                      ; r->coeffs[i * 8 + j] = mask & ((KYBER_Q + 1) / 2)
+
+	movzx	eax, word [rbp-4]                       ; j
+	add	eax, 1                                    ; j++
+	mov	word [rbp-4], ax
+  jmp .poly_frommsg_loop_inner
+
+.poly_frommsg_loop_inner_end:
+	movzx	eax, word [rbp-2]
+	add	eax, 1                                    ; i++
+	mov	word [rbp-2], ax
+  jmp .poly_frommsg_loop_outer
+
+.poly_frommsg_loop_outer_end:
+	leave
+	ret
+
+; /*************************************************
+; * Name:        poly_tomsg
+; * 
+; * Description: Convert polynomial to 32-byte message
+; *
+; * Arguments:   - unsigned char *msg: pointer to output message
+; *              - const poly *a:      pointer to input polynomial
+; **************************************************/
+poly_tomsg:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 32
+	mov	qword [rbp-24], rdi                       ; unsigned char *msg
+	mov	qword [rbp-32], rsi                       ; const poly *a
+
+	mov	dword [rbp-4], 0                          ; i = 0
+
+.poly_tomsg_loop_outer:
+	cmp	dword [rbp-4], KYBER_SYMBYTES             ; i < KYBER_SYMBYTES
+	jge	.poly_tomsg_loop_outer_end
+
+	mov	eax, dword [rbp-4]                        ; i
+	movsx	rdx, eax
+	mov	rax, qword [rbp-24]                       ; msg
+	add	rax, rdx                                  ; msg + i
+	mov	byte [rax], 0                             ; msg[i] = 0
+
+	mov	dword [rbp-8], 0                          ; j = 0
+
+.poly_tomsg_loop_inner:
+	cmp	dword [rbp-8], 8                          ; j < 8
+	jge	.poly_tomsg_loop_inner_end
+
+	mov	eax, dword [rbp-4]                        ; i
+	lea	edx, [0+rax*8]                            ; i * 8
+	mov	eax, dword [rbp-8]                        ; j
+	add	edx, eax                                  ; i * 8 + j
+	mov	rax, qword [rbp-32]                       ; a
+	movzx	eax, word [rax+rdx*2]                   ; a->coeffs[i * 8  j]
+	mov	edi, eax
+	call	freeze
+
+  sal eax, 1                                    ; freeze(a->coeffs[8*i+j]) << 1
+
+  mov rbx, KYBER_Q
+  sar rbx, 1                                    ; KYBER_Q / 2
+	add	eax, ebx                                  ; (freeze(a->coeffs[8*i+j]) << 1) + KYBER_Q/2
+  
+  xor rdx, rdx
+  mov ebx, KYBER_Q
+  div ebx                                       ; ((freeze(a->coeffs[8*i+j]) << 1) + KYBER_Q/2)/KYBER_Q
+
+	and	eax, 1                                    ; (((freeze(a->coeffs[8*i+j]) << 1) + KYBER_Q/2)/KYBER_Q) & 1
+	mov	word [rbp-10], ax                         ; t = (((freeze(a->coeffs[8*i+j]) << 1) + KYBER_Q/2)/KYBER_Q) & 1
+
+	mov	eax, dword [rbp-4]                        ; i
+	movsx	rdx, eax
+	mov	rax, qword [rbp-24]                       ; msg
+	add	rax, rdx                                  ; msg + i
+	movzx	eax, byte [rax]                         ; msg[i]
+	mov	esi, eax
+
+	movzx	edx, word [rbp-10]                      ; t
+	mov	ecx, dword [rbp-8]                        ; j
+	sal	edx, cl                                   ; t << j
+	mov	eax, edx
+	or	esi, eax                                  ; msg[i] | t << j
+	mov	ecx, esi
+
+	mov	eax, dword [rbp-4]                        ; i
+	movsx	rdx, eax
+	mov	rax, qword [rbp-24]                       ; msg
+	add	rax, rdx                                  ; msg + i
+	mov	edx, ecx
+	mov	byte [rax], dl                            ; msg[i] |= t << j
+
+	add	dword [rbp-8], 1                          ; j++
+  jmp .poly_tomsg_loop_inner
+
+.poly_tomsg_loop_inner_end:
+	add	dword [rbp-4], 1                              ; i++
+  jmp .poly_tomsg_loop_outer
+
+.poly_tomsg_loop_outer_end:
+	leave
+	ret
+
