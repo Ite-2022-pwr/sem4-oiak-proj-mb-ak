@@ -9,5 +9,5 @@ Autorzy:
 
 ## Abstract
 
-Projekt polega na przetłumaczeniu najważniejszych funkcji implementacji szyfrowania [CRYSTALS-Kyber](https://pq-crystals.org/kyber/resources.shtml) z języka C na assembly x86_64.
+Projekt polega na przetłumaczeniu najważniejszych funkcji [implementacji](https://pq-crystals.org/kyber/data/kyber-submission-nist.zip) szyfrowania [CRYSTALS-Kyber](https://pq-crystals.org/kyber/resources.shtml) z języka C na assembly x86_64.
 
