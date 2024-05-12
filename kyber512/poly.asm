@@ -14,11 +14,14 @@ global poly_add
 global poly_sub
 global poly_frommsg
 global poly_tomsg
+global poly_getnoise
 
 extern ntt
 extern invntt
 extern barrett_reduce
 extern freeze
+extern shake256
+extern cbd
 
 ; /*************************************************
 ; * Name:        poly_ntt
@@ -311,6 +314,59 @@ poly_tomsg:
   jmp .poly_tomsg_loop_outer
 
 .poly_tomsg_loop_outer_end:
+	leave
+	ret
+
+; /*************************************************
+; * Name:        poly_getnoise
+; * 
+; * Description: Sample a polynomial deterministically from a seed and a nonce,
+; *              with output polynomial close to centered binomial distribution
+; *              with parameter KYBER_ETA
+; *
+; * Arguments:   - poly *r:                   pointer to output polynomial
+; *              - const unsigned char *seed: pointer to input seed 
+; *              - unsigned char nonce:       one-byte input nonce
+; **************************************************/
+poly_getnoise:
+	push	rbp
+	mov	rbp, rsp
+	sub	rsp, 416
+	mov	qword [rbp-392], rdi                      ; poly *r
+	mov	qword [rbp-400], rsi                      ; const unsigned char *seed
+	mov	byte [rbp-404], dl                        ; unsigned char nonce
+
+	mov	dword [rbp-4], 0                          ; i = 0
+.poly_getnoise_loop:
+	cmp	dword [rbp-4], KYBER_SYMBYTES
+	jge	.poly_getnoise_loop_end
+
+	movsxd	rdx, dword [rbp-4]                    ; i
+	mov	rax, qword [rbp-400]                      ; seed
+	add	rax, rdx                                  ; seed + i
+	movzx	edx, byte [rax]                         ; seed[i]
+	mov	eax, dword [rbp-4]                        ; i
+	cdqe
+	mov	byte [rbp+rax-384], dl                    ; extseed[i] = seed[i]
+
+	add	dword [rbp-4], 1                          ; i++
+  jmp .poly_getnoise_loop
+
+.poly_getnoise_loop_end:
+
+	movzx	eax, byte [rbp-404]                     ; nonce
+	mov	byte [rbp-384+KYBER_SYMBYTES], al         ; extseed[KYBER_SYMBYTES] = nonce
+
+	lea	rdi, [rbp-336]                            ; buf
+	lea	esi, [KYBER_ETA*KYBER_N/4]                ; KYBER_ETA * KYBER_N / 4
+	lea	rdx, [rbp-384]                            ; extseed
+	lea	ecx, [KYBER_SYMBYTES+1]                   ; KYBER_SYMBYTES + 1
+	call	shake256
+
+	lea	rsi, [rbp-336]                            ; buf
+	mov	rdi, qword [rbp-392]                      ; r
+	call	cbd
+
 	leave
 	ret
 

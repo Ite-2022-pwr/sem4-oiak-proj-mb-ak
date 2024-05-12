@@ -1,7 +1,5 @@
 #include "poly.h"
 #include "reduce.h"
-#include "cbd.h"
-#include "fips202.h"
 
 /*************************************************
 * Name:        poly_compress
@@ -111,31 +109,5 @@ void poly_frombytes(poly *r, const unsigned char *a)
     r->coeffs[8*i+6] = (a[13*i+ 9] >> 6) | (((uint16_t)a[13*i+10]       ) << 2) | (((uint16_t)a[13*i+11] & 0x07) << 10);
     r->coeffs[8*i+7] = (a[13*i+11] >> 3) | (((uint16_t)a[13*i+12]       ) << 5);
   }
-}
-
-/*************************************************
-* Name:        poly_getnoise
-* 
-* Description: Sample a polynomial deterministically from a seed and a nonce,
-*              with output polynomial close to centered binomial distribution
-*              with parameter KYBER_ETA
-*
-* Arguments:   - poly *r:                   pointer to output polynomial
-*              - const unsigned char *seed: pointer to input seed 
-*              - unsigned char nonce:       one-byte input nonce
-**************************************************/
-void poly_getnoise(poly *r,const unsigned char *seed, unsigned char nonce)
-{
-  unsigned char buf[KYBER_ETA*KYBER_N/4];
-  unsigned char extseed[KYBER_SYMBYTES+1];
-  int i;
-
-  for(i=0;i<KYBER_SYMBYTES;i++)
-    extseed[i] = seed[i];
-  extseed[KYBER_SYMBYTES] = nonce;
-     
-  shake256(buf,KYBER_ETA*KYBER_N/4,extseed,KYBER_SYMBYTES+1);
-
-  cbd(r, buf);
 }
 
