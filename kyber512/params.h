@@ -12,10 +12,6 @@
 
 #if   (KYBER_K == 2) /* Kyber512 */
 #define KYBER_ETA 5
-#elif (KYBER_K == 3) /* Kyber768 */
-#define KYBER_ETA 4
-#elif (KYBER_K == 4) /*KYBER1024 */
-#define KYBER_ETA 3
 #else
 #error "KYBER_K must be in {2,3,4}"
 #endif
