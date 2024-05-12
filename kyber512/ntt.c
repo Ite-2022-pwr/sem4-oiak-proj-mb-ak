@@ -1,4 +1,3 @@
-#include "inttypes.h"
 #include "ntt.h"
 #include "params.h"
 #include "reduce.h"
