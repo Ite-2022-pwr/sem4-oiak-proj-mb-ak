@@ -72,21 +72,6 @@ void polyvec_decompress(polyvec *r, const unsigned char *a)
 #endif
 
 /*************************************************
-* Name:        polyvec_tobytes
-* 
-* Description: Serialize vector of polynomials
-*
-* Arguments:   - unsigned char *r: pointer to output byte array 
-*              - const polyvec *a: pointer to input vector of polynomials
-**************************************************/
-void polyvec_tobytes(unsigned char *r, const polyvec *a)
-{
-  int i;
-  for(i=0;i<KYBER_K;i++)
-    poly_tobytes(r+i*KYBER_POLYBYTES, &a->vec[i]);
-}
-
-/*************************************************
 * Name:        polyvec_frombytes
 * 
 * Description: De-serialize vector of polynomials;
