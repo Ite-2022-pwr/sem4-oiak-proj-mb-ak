@@ -101,7 +101,7 @@ poly_add:
 	movsx	rcx, ecx
 	mov	word [rdx+rcx*2], ax        ; r->coeffs[i] = barrett_reduce(a->coeffs[i] + b->coeffs[i])
 
-	add	dword [rbp-4], 1
+	inc	dword [rbp-4]               ; i++
   jmp .poly_add_loop
 
 .poly_add_loop_end:
@@ -153,7 +153,7 @@ poly_sub:
 	movsx	rcx, ecx
 	mov	word [rdx+rcx*2], ax            ; r->coeffs[i]
 
-	add	dword[rbp-4], 1                 ; i++
+	inc dword[rbp-4]                    ; i++
   jmp .poly_sub_loop
 
 .poly_add_loop_end:

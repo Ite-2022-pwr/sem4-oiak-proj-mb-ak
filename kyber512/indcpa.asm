@@ -6,12 +6,6 @@ section .text
 global indcpa_enc
 global indcpa_dec
 global indcpa_keypair
-global pack_pk
-global unpack_pk
-global pack_ciphertext
-global unpack_ciphertext
-global pack_sk
-global unpack_sk
 
 %define KYBER_K 2
 %define KYBER_N 256
@@ -81,7 +75,7 @@ pack_pk:
 	movzx	eax, byte [rax]                         ; seed[i]
 	mov	byte [rdx], al                            ; r[i+KYBER_POLYVECCOMPRESSEDBYTES] = seed[i]
 
-	add	dword [rbp-4], 1            ; i++
+	inc	dword [rbp-4]                             ; i++
   jmp .pack_pk_loop
 
 .pack_pk_loop_end:
@@ -127,7 +121,7 @@ unpack_pk:
 	movzx	eax, byte [rax]                       ; packedpk[i+KYBER_POLYVECCOMPRESSEDBYTES]
 	mov	byte [rdx], al                          ; seed[i] = packedpk[i+KYBER_POLYVECCOMPRESSEDBYTES]
 
-	add	dword [rbp-4], 1                        ; i++
+	inc	dword [rbp-4]                           ; i++
   jmp .unpack_pk_loop
 
 .unpack_pk_loop_end:
@@ -286,7 +280,7 @@ indcpa_enc:
 	mov	rsi, qword [rbp-7760]         ; coins
 	call	poly_getnoise
 
-	add	dword [rbp-4], 1              ; i++
+	inc dword [rbp-4]                 ; i++
   jmp .poly_getnoise_sp_loop
 
 .poly_getnoise_sp_loop_end:
@@ -314,7 +308,7 @@ indcpa_enc:
 	mov	rsi, qword [rbp-7760]         ; coins
 	call	poly_getnoise
 
-	add dword [rbp-4], 1              ; i++
+	inc dword [rbp-4]                 ; i++
   jmp .poly_getnoise_ep_loop
 
 .poly_getnoise_ep_loop_end:
@@ -343,13 +337,12 @@ indcpa_enc:
 	lea	rsi, [rbp-1040]                 ; sp
 	call	polyvec_pointwise_acc
 
-	add	dword [rbp-4], 1                ; i++
+	inc	dword [rbp-4]                   ; i++
   jmp .polyvec_pointwise_acc_loop
 
 .polyvec_pointwise_acc_loop_end:
 
 	lea	rdi, [rbp-6160]                 ; bp
-	; mov	rdi, rax
 	call	polyvec_invntt
 
 	lea	rdx, [rbp-3088]                 ; ep
@@ -408,58 +401,61 @@ indcpa_keypair:
 	sub	rsp, 4096
 	or	qword  [rsp], 0
 	sub	rsp, 1152
-	mov	qword  [rbp-5240], rdi
-	mov	qword  [rbp-5248], rsi
+	mov	qword  [rbp-5240], rdi      ; unsigned char *pk
+	mov	qword  [rbp-5248], rsi      ; unsigned char *sk
+
 	mov	qword  [rbp-8], rax
 	xor	eax, eax
+	lea	rax, [rbp-80]               ; unsigned char buf[KYBER_SYMBYTES+KYBER_SYMBYTES]
+	mov	qword  [rbp-5216], rax      ; unsigned char *publicseed = buf
 	lea	rax, [rbp-80]
-	mov	qword  [rbp-5216], rax
+	add	rax, KYBER_SYMBYTES
+	mov	qword  [rbp-5208], rax      ; unsigned char *noiseseed = buf+KYBER_SYMBYTES
+	mov	byte  [rbp-5221], 0         ; unsigned char nonce = 0
+
 	lea	rax, [rbp-80]
-	add	rax, 32
-	mov	qword  [rbp-5208], rax
-	mov	byte  [rbp-5221], 0
-	lea	rax, [rbp-80]
-	mov	esi, 32 ; KYBER_SYMBYTES
+	mov	esi, KYBER_SYMBYTES
 	mov	rdi, rax ; buf
 
 	call	randombytes
 
-	lea	rcx, [rbp-80]
-	lea	rax, [rbp-80]
-	mov	edx, 32 ; KYBER_SYMBYTES
-	mov	rsi, rcx ; buf
-	mov	rdi, rax ; buf
+	lea	rsi, [rbp-80]
+	lea	rdi, [rbp-80]
+	mov	edx, KYBER_SYMBYTES
 
 	call	sha3_512
 
-	mov	rcx, qword  [rbp-5216] ; public seed
-	lea	rax, [rbp-2128] ; a
+	mov	rsi, qword  [rbp-5216] ; public seed
+	lea	rdi, [rbp-2128] ; a
 	mov	edx, 0
-	mov	rsi, rcx
-	mov	rdi, rax
 
 	call	gen_matrix
 
 	mov	dword  [rbp-5220], 0 ; i = 0
 .first_loop_start:
-	cmp	dword  [rbp-5220], 2 ; i < KYBER_K
+	cmp	dword  [rbp-5220], KYBER_K ; i < KYBER_K
 	jge	.first_loop_end
-	movzx	eax, byte  [rbp-5221]
-	lea	edx, 1[rax]
-	mov	byte  [rbp-5221], dl
+
+	movzx	eax, byte [rbp-5221]      ; nonce
+	lea	edx, [rax+1]                ; nonce + 1
+	mov	byte  [rbp-5221], dl        ; nonce++
 	movzx	edx, al
-	mov	eax, dword  [rbp-5220]
+
+	mov	eax, dword  [rbp-5220]      ; i
 	cdqe
-	sal	rax, 9
+	sal	rax, 9                      ; i * 512 (rozmiar poly)
 	mov	rcx, rax
-	lea	rax, [rbp-3152]
-	add	rcx, rax
-	mov	rax, qword  [rbp-5208]
-	mov	rsi, rax
+
+	lea	rax, [rbp-3152]             ; skpv
+	add	rcx, rax                    ; skpv.vec + i
+
+	mov	rsi, qword  [rbp-5208]    ; noiseseed
 	mov	rdi, rcx
 	call	poly_getnoise
-	inc	dword  [rbp-5220] ; i++
+
+	inc	dword [rbp-5220] ; i++
 	jmp	.first_loop_start
+
 .first_loop_end:
 
 	lea	rax, [rbp-3152] ; &skpv polyvec
@@ -468,33 +464,38 @@ indcpa_keypair:
 	call	polyvec_ntt
 
 	mov	dword  [rbp-5220], 0 ; i = 0
-	
 .second_loop_start:
-	cmp	dword  [rbp-5220], 2 ; i < KYBER_K
+	cmp	dword  [rbp-5220], KYBER_K ; i < KYBER_K
 	jge	.second_loop_end
-	movzx	eax, byte  [rbp-5221] 
-	lea	edx, 1[rax]
-	mov	byte  [rbp-5221], dl
+
+	movzx	eax, byte  [rbp-5221]     ; nonce
+	lea	edx, [rax+1]                ; nonce + 1
+	mov	byte  [rbp-5221], dl        ; nonce++
 	movzx	edx, al
-	mov	eax, dword  [rbp-5220]
+
+	mov	eax, dword  [rbp-5220]      ; i
 	cdqe
-	sal	rax, 9
+	sal	rax, 9                      ; i * 512
 	mov	rcx, rax
-	lea	rax, [rbp-5200]
-	add	rcx, rax
-	mov	rax, qword  [rbp-5208]
-	mov	rsi, rax
+
+	lea	rax, [rbp-5200]             ; e
+	add	rcx, rax                    ; e.vec + i
+
+	mov	rsi, qword  [rbp-5208]      ; noiseseed
 	mov	rdi, rcx
 	call	poly_getnoise
+
 	inc	dword  [rbp-5220] ; i++
 	jmp	.second_loop_start
+
 .second_loop_end:
 
 	; matrix-vector multiplication
 	mov	dword  [rbp-5220], 0 ; i = 0
 .matrix_vector_multiplication_loop_start:
-	cmp	dword  [rbp-5220], 2 ; i < KYBER_K
+	cmp	dword  [rbp-5220], KYBER_K ; i < KYBER_K
 	jge	.matrix_vector_multiplication_loop_end
+
 	mov	eax, dword  [rbp-5220] ; i
 	cdqe
 	sal	rax, 10 ; i << 10 = i * 1024 = i * sizeof(polyvec)
@@ -512,6 +513,7 @@ indcpa_keypair:
 	call	polyvec_pointwise_acc
 	inc	dword  [rbp-5220] ; i++
 	jmp	.matrix_vector_multiplication_loop_start
+
 .matrix_vector_multiplication_loop_end:
 	
 	lea	rax, [rbp-4176] ; &pkpv

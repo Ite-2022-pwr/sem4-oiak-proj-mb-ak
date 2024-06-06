@@ -53,7 +53,7 @@ load_littleendian:
 
 	or	qword [rbp-16], rax       ; r |= x[0] << (i * 8)
 
-	add	dword [rbp-4], 1          ; i++
+	inc dword [rbp-4]             ; i++
   jmp .loop
 
 .loop_end:
@@ -112,7 +112,7 @@ cbd:
 	and	rax, rdx                    ; (t >> j) & 0x0842108421
 	add	qword [rbp-8], rax          ; d += (t >> j) & 0x0842108421
 
-	add	dword [rbp-16], 1           ; j++
+	inc	dword [rbp-16]              ; j++
   jmp .inner_loop
 
 .inner_loop_end:
@@ -215,7 +215,7 @@ cbd:
 	mov	rax, qword [rbp-104]        ; r
 	mov	word [rax+rdx*2], cx
 
-	add	dword [rbp-12], 1           ; i++
+	inc dword [rbp-12]              ; i++
   jmp .outer_loop
 
 .outer_loop_end:

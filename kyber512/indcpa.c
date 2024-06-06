@@ -2,13 +2,6 @@
 #include "polyvec.h"
 #include "fips202.h"
 
-void pack_pk(unsigned char *r, const polyvec *pk, const unsigned char *seed);
-void unpack_pk(polyvec *pk, unsigned char *seed, const unsigned char *packedpk);
-void pack_ciphertext(unsigned char *r, const polyvec *b, const poly *v);
-void unpack_ciphertext(polyvec *b, poly *v, const unsigned char *c);
-void pack_sk(unsigned char *r, const polyvec *sk);
-void unpack_sk(polyvec *sk, const unsigned char *packedsk);
-
 #define gen_a(A,B)  gen_matrix(A,B,0)
 #define gen_at(A,B) gen_matrix(A,B,1)
 

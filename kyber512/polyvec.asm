@@ -61,7 +61,7 @@ polyvec_tobytes:
 	mov	rdi, rax
 	call	poly_tobytes                ; poly_tobytes(r + i * KYBER_POLYBYTES, &a->vec[i])
 
-	add	dword [rbp-4], 1                ; i++
+	inc	dword [rbp-4]                 ; i++
   jmp .loop
 
 .loop_end:
@@ -108,7 +108,7 @@ polyvec_frombytes:
 	mov	rdi, rax
 	call	poly_frombytes
 
-	add	dword[rbp-4], 1                 ; i++
+	inc	dword[rbp-4]                   ; i++
   jmp .loop
 
 .loop_end:
@@ -144,7 +144,7 @@ polyvec_ntt:
 	mov	rdi, rax
 	call	poly_ntt
 
-	add	dword [rbp-4], 1              ; i++
+	inc dword [rbp-4]                 ; i++
   jmp .loop
 
 .loop_end:
@@ -180,7 +180,7 @@ polyvec_invntt:
 	mov	rdi, rax
 	call	poly_invntt
 
-	add	dword [rbp-4], 1          ; i++
+	inc	dword [rbp-4]             ; i++
   jmp .loop
 
 .loop_end:
@@ -236,7 +236,7 @@ polyvec_add:
 
 	call	poly_add
 
-	add	dword [rbp-4], 1              ; i++
+	inc	dword [rbp-4]                ; i++
   jmp .loop
 
 .loop_end:
@@ -339,7 +339,7 @@ polyvec_pointwise_acc:
 	movsx	rdx, edx
 	mov	word [rax+rdx*2], cx          ; r->coeffs[j] += montgomery_reduce(...)
 
-	add	dword [rbp-4], 1              ; i++
+	inc	dword [rbp-4]                 ; i++
   jmp .inner_loop
 
 .inner_loop_end:
@@ -357,7 +357,7 @@ polyvec_pointwise_acc:
 	movsx	rcx, ecx
 	mov	word [rdx+rcx*2], ax          ; r->coeffs[j] = barrett_reduce(r->coeffs[j])
 
-	add	dword [rbp-8], 1              ; j++
+	inc dword [rbp-8]                 ; j++
   jmp .outer_loop
 
 .outer_loop_end:

@@ -158,7 +158,7 @@ ntt:
 	mov	word [rbx], ax            ; p[j] = barrett_reduce(p[j] + t)
 
 .if_end:
-	add	dword [rbp-28], 1         ; j++
+	inc	dword [rbp-28]            ; j++
   jmp .inner_loop
 
 .inner_loop_end:
@@ -175,11 +175,11 @@ ntt:
 
 .start_loop_end:
 
-	sub	dword [rbp-20], 1   ; level--
+	dec	dword [rbp-20]            ; level--
   jmp .level_loop
 
 .level_loop_end:
-	mov	rbx, qword [rbp-8]  ; przywróć rbx
+	mov	rbx, qword [rbp-8]        ; przywróć rbx
 	leave
 	ret
 
@@ -359,12 +359,12 @@ invntt:
 
 .inner_loop_end:
 
-	add	dword [rbp-20], 1         ; start++
+	inc dword [rbp-20]            ; start++
   jmp .start_loop
 
 .start_loop_end:
 
-	add	dword [rbp-32], 1         ; level++
+	inc	dword [rbp-32]            ; level++
   jmp .level_loop
 
 .level_loop_end:
@@ -400,7 +400,7 @@ invntt:
 	call	montgomery_reduce
 	mov	word [rbx], ax                  ; a[j] = montgomery_reduce(psis_inv_montgomery[j] * a[j])
 
-	add	dword [rbp-24], 1                 ; j++
+	inc	dword [rbp-24]                  ; j++
   jmp .montgomery_reduce_loop
 
 .montgomery_reduce_loop_end:
