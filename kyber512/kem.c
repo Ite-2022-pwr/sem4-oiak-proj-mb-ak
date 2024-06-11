@@ -4,6 +4,7 @@
 #include "params.h"
 #include "verify.h"
 #include "indcpa.h"
+#include <stdio.h>
 
 /*************************************************
 * Name:        crypto_kem_keypair
@@ -25,6 +26,15 @@ int crypto_kem_keypair(unsigned char *pk, unsigned char *sk)
   sha3_256(sk+KYBER_SECRETKEYBYTES-2*KYBER_SYMBYTES,pk,KYBER_PUBLICKEYBYTES);
   randombytes(sk+KYBER_SECRETKEYBYTES-KYBER_SYMBYTES,KYBER_SYMBYTES);         /* Value z for pseudo-random output on reject */
   return 0;
+}
+
+void print_hex(const unsigned char *msg, unsigned long long size)
+{
+  for (int i = 0; i < size; i++)
+  {
+    printf("%X", *(msg + i));
+  }
+  printf("\n");
 }
 
 /*************************************************
@@ -50,7 +60,11 @@ int crypto_kem_enc(unsigned char *ct, unsigned char *ss, const unsigned char *pk
   sha3_256(buf+KYBER_SYMBYTES, pk, KYBER_PUBLICKEYBYTES);                     /* Multitarget countermeasure for coins + contributory KEM */
   sha3_512(kr, buf, 2*KYBER_SYMBYTES);
 
+  printf("\n\nDane (przed zaszyfrowaniem): ");
+  print_hex(buf, 2*KYBER_SYMBYTES);
   indcpa_enc(ct, buf, pk, kr+KYBER_SYMBYTES);                                 /* coins are in kr+KYBER_SYMBYTES */
+  printf("\nPo zaszyfrowaniu: ");
+  print_hex(ct, CRYPTO_CIPHERTEXTBYTES);
 
   sha3_256(kr+KYBER_SYMBYTES, ct, KYBER_CIPHERTEXTBYTES);                     /* overwrite coins in kr with H(c) */
   sha3_256(ss, kr, 2*KYBER_SYMBYTES);                                         /* hash concatenation of pre-k and H(c) to k */
@@ -84,6 +98,8 @@ int crypto_kem_dec(unsigned char *ss, const unsigned char *ct, const unsigned ch
                                                                               
   for(i=0;i<KYBER_SYMBYTES;i++)                                               /* Multitarget countermeasure for coins + contributory KEM */
     buf[KYBER_SYMBYTES+i] = sk[KYBER_SECRETKEYBYTES-2*KYBER_SYMBYTES+i];      /* Save hash by storing H(pk) in sk */
+  printf("\n\nPo odszyfrowaniu: ");
+  print_hex(buf, 2*KYBER_SYMBYTES);
   sha3_512(kr, buf, 2*KYBER_SYMBYTES);
 
   indcpa_enc(cmp, buf, pk, kr+KYBER_SYMBYTES);                                /* coins are in kr+KYBER_SYMBYTES */
