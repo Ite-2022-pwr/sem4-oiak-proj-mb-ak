@@ -44,7 +44,7 @@ extern sha3_512
 ; *              and the public seed used to generate the matrix A.
 ; *
 ; * Arguments:   unsigned char *r:          pointer to the output serialized public key
-; *              const polyvec *pk:         pointer to the input public-key polynomial
+; *              const polyvec *pk:         pointer to the input public-key vector of polynomials
 ; *              const unsigned char *seed: pointer to the input public seed
 ; **************************************************/
 pack_pk:
