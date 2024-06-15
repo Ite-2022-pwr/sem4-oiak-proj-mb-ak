@@ -30,7 +30,7 @@ extern cbd
 ; *              a polynomial in place; 
 ; *              inputs assumed to be in normal order, output in bitreversed order
 ; *
-; * Arguments:   - uint16_t *r: pointer to in/output polynomial
+; * Arguments:   - poly *r: pointer to in/output polynomial
 ; **************************************************/
 poly_ntt:
 	push	rbp
@@ -48,7 +48,7 @@ poly_ntt:
 ; *              a polynomial in place; 
 ; *              inputs assumed to be in bitreversed order, output in normal order
 ; *
-; * Arguments:   - uint16_t *a: pointer to in/output polynomial
+; * Arguments:   - poly *a: pointer to in/output polynomial
 ; **************************************************/
 poly_invntt:
 	push	rbp
